@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
+import { Spinner } from '@/components/ui/Spinner';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -13,11 +14,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-accent text-white hover:bg-teal-700 disabled:bg-teal-300 disabled:text-teal-100',
+    'bg-brand-400 text-white shadow-lg shadow-brand-400/20 hover:scale-[1.01] hover:bg-brand-500 disabled:bg-brand-300 disabled:text-brand-100',
   secondary:
-    'bg-white text-ink border border-slate-200 hover:bg-slate-50 disabled:text-slate-400',
-  ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 disabled:text-slate-400',
-  danger: 'bg-rose-600 text-white hover:bg-rose-700 disabled:bg-rose-300',
+    'border border-brand-200 bg-white text-ink hover:scale-[1.01] hover:border-brand-400 hover:bg-brand-50 disabled:text-dark-200',
+  ghost: 'bg-transparent text-dark-400 hover:bg-brand-100 disabled:text-dark-200',
+  danger: 'bg-error text-white hover:scale-[1.01] hover:bg-red-700 disabled:bg-red-300',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -37,7 +38,7 @@ export const Button = ({
 }: ButtonProps) => (
   <button
     className={cn(
-      'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed',
+      'inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed',
       variantClasses[variant],
       sizeClasses[size],
       className,
@@ -45,6 +46,13 @@ export const Button = ({
     disabled={disabled || isLoading}
     {...props}
   >
-    {isLoading ? 'Procesando...' : children}
+    {isLoading ? (
+      <span className="inline-flex items-center gap-2">
+        <Spinner />
+        Procesando...
+      </span>
+    ) : (
+      children
+    )}
   </button>
 );

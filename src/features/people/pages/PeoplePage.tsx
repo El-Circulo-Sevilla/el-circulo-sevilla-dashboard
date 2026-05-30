@@ -8,6 +8,7 @@ import { PeopleTable } from '@/features/people/components/PeopleTable';
 import { PersonCard } from '@/features/people/components/PersonCard';
 import { peopleService } from '@/features/people/services/peopleService';
 import type { Person, PersonStatus } from '@/features/people/types';
+import { Spinner } from '@/components/ui/Spinner';
 import { formatDateTime } from '@/lib/utils';
 
 const statusOrder: PersonStatus[] = ['active', 'pending', 'rejected', 'inactive'];
@@ -121,8 +122,9 @@ export const PeoplePage = () => {
       ) : null}
 
       {loading ? (
-        <Card>
-          <p className="text-sm text-slate-600">Cargando personas...</p>
+        <Card className="flex items-center gap-2">
+          <Spinner />
+          <p className="text-sm text-mute">Cargando personas...</p>
         </Card>
       ) : null}
 

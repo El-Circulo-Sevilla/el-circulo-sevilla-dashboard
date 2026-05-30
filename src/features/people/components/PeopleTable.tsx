@@ -1,7 +1,7 @@
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import type { Person, PersonStatus } from '@/features/people/types';
-import { formatDate } from '@/lib/utils';
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import type { Person, PersonStatus } from "@/features/people/types";
+import { formatDate } from "@/lib/utils";
 
 interface PeopleTableProps {
   people: Person[];
@@ -11,11 +11,14 @@ interface PeopleTableProps {
   onDeactivate: (person: Person) => void;
 }
 
-const statusMap: Record<PersonStatus, { label: string; variant: 'success' | 'warning' | 'danger' | 'neutral' }> = {
-  active: { label: 'Activo', variant: 'success' },
-  pending: { label: 'Pendiente', variant: 'warning' },
-  rejected: { label: 'Rechazado', variant: 'danger' },
-  inactive: { label: 'Inactivo', variant: 'neutral' },
+const statusMap: Record<
+  PersonStatus,
+  { label: string; variant: "success" | "warning" | "danger" | "neutral" }
+> = {
+  active: { label: "Activo", variant: "success" },
+  pending: { label: "Pendiente", variant: "warning" },
+  rejected: { label: "Rechazado", variant: "danger" },
+  inactive: { label: "Inactivo", variant: "neutral" },
 };
 
 export const PeopleTable = ({
@@ -25,9 +28,9 @@ export const PeopleTable = ({
   onToggleStatus,
   onDeactivate,
 }: PeopleTableProps) => (
-  <div className="overflow-x-auto rounded-panel border border-slate-200 bg-white shadow-panel">
+  <div className="overflow-x-auto rounded-2xl border border-brand-200 bg-white shadow-panel">
     <table className="min-w-full text-left text-sm">
-      <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+      <thead className="border-b border-brand-200 bg-brand-50 text-xs uppercase tracking-wide text-dark-300">
         <tr>
           <th className="px-4 py-3">Nombre</th>
           <th className="px-4 py-3">Email</th>
@@ -42,15 +45,22 @@ export const PeopleTable = ({
       </thead>
       <tbody>
         {people.map((person) => (
-          <tr key={person.id} className="border-b border-slate-100">
+          <tr
+            key={person.id}
+            className="border-b border-brand-100 transition-colors hover:bg-brand-50/60"
+          >
             <td className="px-4 py-3 font-medium text-ink">{person.name}</td>
-            <td className="px-4 py-3 text-slate-600">{person.email}</td>
-            <td className="px-4 py-3 text-slate-600">{person.age ?? '-'}</td>
-            <td className="px-4 py-3 text-slate-600">{person.city ?? '-'}</td>
+            <td className="px-4 py-3 text-mute">{person.email}</td>
+            <td className="px-4 py-3 text-mute">{person.age ?? "-"}</td>
+            <td className="px-4 py-3 text-mute">{person.city ?? "-"}</td>
             <td className="px-4 py-3">
-              <Badge variant={statusMap[person.status].variant}>{statusMap[person.status].label}</Badge>
+              <Badge variant={statusMap[person.status].variant}>
+                {statusMap[person.status].label}
+              </Badge>
             </td>
-            <td className="px-4 py-3 text-slate-600">{formatDate(person.createdAt)}</td>
+            <td className="px-4 py-3 text-mute">
+              {formatDate(person.createdAt)}
+            </td>
             <td className="px-4 py-3">
               <div className="flex flex-wrap gap-1">
                 {person.interests.slice(0, 2).map((interest) => (
@@ -60,21 +70,37 @@ export const PeopleTable = ({
                 ))}
               </div>
             </td>
-            <td className="px-4 py-3 text-slate-600">
-              {person.lastActivityAt ? formatDate(person.lastActivityAt) : '-'}
+            <td className="px-4 py-3 text-mute">
+              {person.lastActivityAt ? formatDate(person.lastActivityAt) : "-"}
             </td>
             <td className="px-4 py-3">
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" onClick={() => onView(person)}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onView(person)}
+                >
                   Ver
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => onEdit(person)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onEdit(person)}
+                >
                   Editar
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => onToggleStatus(person)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onToggleStatus(person)}
+                >
                   Estado
                 </Button>
-                <Button size="sm" variant="danger" onClick={() => onDeactivate(person)}>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  onClick={() => onDeactivate(person)}
+                >
                   Desactivar
                 </Button>
               </div>

@@ -30,12 +30,12 @@ export const PersonCard = ({
     <div className="flex items-start justify-between gap-4">
       <div>
         <p className="font-semibold text-ink">{person.name}</p>
-        <p className="text-sm text-slate-600">{person.email}</p>
+        <p className="text-sm text-mute">{person.email}</p>
       </div>
       <Badge variant={statusMap[person.status].variant}>{statusMap[person.status].label}</Badge>
     </div>
 
-    <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
+    <div className="grid grid-cols-2 gap-2 text-sm text-mute">
       <span>Edad: {person.age ?? '-'}</span>
       <span>Ciudad: {person.city ?? '-'}</span>
       <span>Registro: {formatDate(person.createdAt)}</span>

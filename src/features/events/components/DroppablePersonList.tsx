@@ -20,13 +20,13 @@ export const DroppablePersonList = ({
     <section
       ref={setNodeRef}
       className={cn(
-        'rounded-panel border border-slate-200 bg-slate-50 p-4 transition-colors',
-        isOver && 'border-teal-400 bg-teal-50',
+        'rounded-2xl border border-brand-200 bg-brand-50 p-4 transition-colors',
+        isOver && 'border-brand-400 bg-brand-100',
       )}
     >
       <header className="mb-3">
         <h3 className="text-sm font-semibold text-ink">{title}</h3>
-        <p className="text-xs text-slate-500">{subtitle}</p>
+        <p className="text-xs text-mute">{subtitle}</p>
       </header>
       <div className="grid gap-2">{children}</div>
     </section>

@@ -20,28 +20,28 @@ const statusMap: Record<EventStatus, { label: string; variant: 'neutral' | 'warn
 };
 
 export const EventCard = ({ event, registeredCount, acceptedCount }: EventCardProps) => (
-  <Card className="flex h-full flex-col justify-between gap-4">
+  <Card className="flex h-full flex-col justify-between gap-4 border-brand-200 transition-all hover:border-brand-400 hover:shadow-lg">
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-base font-semibold text-ink">{event.title}</h3>
         <Badge variant={statusMap[event.status].variant}>{statusMap[event.status].label}</Badge>
       </div>
 
-      <div className="grid gap-1 text-sm text-slate-600">
+      <div className="grid gap-1 text-sm text-mute">
         <p>
-          <strong className="text-slate-700">Tipo:</strong> {event.type}
+          <strong className="text-dark-500">Tipo:</strong> {event.type}
         </p>
         <p>
-          <strong className="text-slate-700">Fecha:</strong> {formatDateTime(event.scheduledAt)}
+          <strong className="text-dark-500">Fecha:</strong> {formatDateTime(event.scheduledAt)}
         </p>
         <p>
-          <strong className="text-slate-700">Lugar:</strong> {event.location}
+          <strong className="text-dark-500">Lugar:</strong> {event.location}
         </p>
         <p>
-          <strong className="text-slate-700">Plazas:</strong> {acceptedCount}/{event.maxSpots}
+          <strong className="text-dark-500">Plazas:</strong> {acceptedCount}/{event.maxSpots}
         </p>
         <p>
-          <strong className="text-slate-700">Inscritos:</strong> {registeredCount}
+          <strong className="text-dark-500">Inscritos:</strong> {registeredCount}
         </p>
       </div>
     </div>

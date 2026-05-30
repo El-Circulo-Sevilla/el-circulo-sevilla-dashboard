@@ -38,8 +38,8 @@ export const DraggablePersonCard = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'rounded-xl border border-slate-200 bg-white p-3 transition-shadow',
-        isDragging ? 'shadow-xl ring-2 ring-teal-400' : 'shadow-sm',
+        'rounded-xl border border-brand-200 bg-white p-3 transition-all',
+        isDragging ? 'shadow-xl ring-2 ring-brand-400' : 'shadow-sm',
         disabled ? 'cursor-not-allowed opacity-60' : 'cursor-grab active:cursor-grabbing',
       )}
       {...listeners}
@@ -48,12 +48,12 @@ export const DraggablePersonCard = ({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-ink">{name}</p>
-          <p className="text-xs text-slate-500">{email}</p>
+          <p className="text-xs text-mute">{email}</p>
         </div>
-        <Badge variant="info">{attendanceStatus}</Badge>
+        <Badge variant="info">{attendanceStatus.toUpperCase()}</Badge>
       </div>
 
-      <div className="mt-2 grid gap-1 text-xs text-slate-600">
+      <div className="mt-2 grid gap-1 text-xs text-mute">
         <p>Edad: {age ?? '-'}</p>
         <p>Intereses: {interests.join(', ')}</p>
         {compatibilityScore ? <p>Compatibilidad: {compatibilityScore}%</p> : null}

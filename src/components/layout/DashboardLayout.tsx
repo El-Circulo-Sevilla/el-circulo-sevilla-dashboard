@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 
 export const DashboardLayout = () => (
-  <div className="min-h-screen bg-surface md:flex">
+  <div className="min-h-screen bg-canvas md:flex">
     <Sidebar />
     <div className="flex min-h-screen flex-1 flex-col">
       <Header />

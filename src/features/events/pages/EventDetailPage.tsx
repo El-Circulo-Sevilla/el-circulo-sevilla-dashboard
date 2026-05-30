@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Spinner } from '@/components/ui/Spinner';
 import {
   EventForm,
   type EventFormValues,
@@ -148,8 +149,9 @@ export const EventDetailPage = () => {
 
   if (loading) {
     return (
-      <Card>
-        <p className="text-sm text-slate-600">Cargando detalle del evento...</p>
+      <Card className="flex items-center gap-2">
+        <Spinner />
+        <p className="text-sm text-mute">Cargando detalle del evento...</p>
       </Card>
     );
   }

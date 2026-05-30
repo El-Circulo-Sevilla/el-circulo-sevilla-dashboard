@@ -80,8 +80,8 @@ export const EventRegistrationsManager = ({
   return (
     <Card className="grid gap-4">
       <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-        <h2 className="text-lg font-semibold text-ink">Gestión de inscritos</h2>
-        <p className="text-sm text-slate-600">
+        <h2 className="text-lg font-bold text-ink">Gestión de inscritos</h2>
+        <p className="text-sm text-mute">
           Inscritos: {registered.length} | Aceptados: {accepted.length} / {maxSpots} plazas
         </p>
       </div>
@@ -93,7 +93,7 @@ export const EventRegistrationsManager = ({
       ) : null}
 
       {saving ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        <div className="rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">
           Guardando selección...
         </div>
       ) : null}
@@ -106,7 +106,7 @@ export const EventRegistrationsManager = ({
             subtitle="Pendientes de aceptación"
           >
             {registered.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500">
+              <p className="rounded-xl border border-dashed border-brand-300 bg-white p-3 text-sm text-mute">
                 No hay personas pendientes.
               </p>
             ) : (
@@ -132,7 +132,7 @@ export const EventRegistrationsManager = ({
             subtitle="Asistentes confirmados"
           >
             {accepted.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500">
+              <p className="rounded-xl border border-dashed border-brand-300 bg-white p-3 text-sm text-mute">
                 Arrastra personas aquí para aceptarlas.
               </p>
             ) : (

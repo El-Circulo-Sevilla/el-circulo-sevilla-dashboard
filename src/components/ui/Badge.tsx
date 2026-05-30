@@ -14,12 +14,12 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  neutral: 'bg-slate-100 text-slate-700',
+  neutral: 'bg-dark-50 text-dark-500',
   success: 'bg-emerald-100 text-emerald-700',
   warning: 'bg-amber-100 text-amber-700',
   danger: 'bg-rose-100 text-rose-700',
-  info: 'bg-sky-100 text-sky-700',
-  accent: 'bg-accentSoft text-teal-800',
+  info: 'bg-brand-100 text-brand-800',
+  accent: 'bg-brand-100 text-brand-800',
 };
 
 export const Badge = ({ className, variant = 'neutral', ...props }: BadgeProps) => (
