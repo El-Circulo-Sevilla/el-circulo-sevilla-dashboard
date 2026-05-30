@@ -75,32 +75,48 @@ export const EventDetailPage = () => {
   const handleUpdateEvent = async (values: EventFormValues) => {
     if (!event) return;
 
-    const scheduledAt = new Date(`${values.date}T${values.time}:00`).toISOString();
+    try {
+      const scheduledAt = new Date(`${values.date}T${values.time}:00`).toISOString();
 
-    const updated = await eventService.updateEvent(event.id, {
-      title: values.title,
-      description: values.description,
-      type: values.type,
-      scheduledAt,
-      location: values.location,
-      zone: values.zone,
-      address: values.address,
-      maxSpots: Number(values.maxSpots),
-      price: values.price,
-      status: values.status,
-      imageUrl: values.imageUrl,
-      internalNotes: values.internalNotes,
-    });
+      const updated = await eventService.updateEvent(event.id, {
+        title: values.title,
+        description: values.description,
+        type: values.type,
+        scheduledAt,
+        location: values.location,
+        zone: values.zone,
+        address: values.address,
+        maxSpots: Number(values.maxSpots),
+        price: values.price,
+        status: values.status,
+        imageUrl: values.imageUrl,
+        internalNotes: values.internalNotes,
+      });
 
-    setEvent(updated);
-    setMessage('Cambios del evento guardados correctamente.');
+      setEvent(updated);
+      setMessage('Cambios del evento guardados correctamente.');
+    } catch (updateError) {
+      setMessage(
+        updateError instanceof Error
+          ? updateError.message
+          : 'No se pudieron guardar los cambios del evento.',
+      );
+    }
   };
 
   const handleAcceptedChange = async (personIds: string[]) => {
     if (!event) return;
 
-    const updatedRegistrations = await eventService.updateAcceptedPeople(event.id, personIds);
-    setRegistrations(updatedRegistrations);
+    try {
+      const updatedRegistrations = await eventService.updateAcceptedPeople(event.id, personIds);
+      setRegistrations(updatedRegistrations);
+    } catch (acceptedError) {
+      setMessage(
+        acceptedError instanceof Error
+          ? acceptedError.message
+          : 'No se pudo actualizar la selección de aceptados.',
+      );
+    }
   };
 
   const handleCloseRegistrations = async () => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
@@ -6,8 +6,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { PeopleTable } from '@/features/people/components/PeopleTable';
 import { PersonCard } from '@/features/people/components/PersonCard';
+import { peopleService } from '@/features/people/services/peopleService';
 import type { Person, PersonStatus } from '@/features/people/types';
-import { mockPeople } from '@/lib/mockData';
 import { formatDateTime } from '@/lib/utils';
 
 const statusOrder: PersonStatus[] = ['active', 'pending', 'rejected', 'inactive'];
@@ -18,12 +18,34 @@ const nextStatus = (status: PersonStatus): PersonStatus => {
 };
 
 export const PeoplePage = () => {
-  const [people, setPeople] = useState<Person[]>(mockPeople);
+  const [people, setPeople] = useState<Person[]>([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [viewPerson, setViewPerson] = useState<Person | null>(null);
   const [editPerson, setEditPerson] = useState<Person | null>(null);
   const [deactivatePerson, setDeactivatePerson] = useState<Person | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  const loadPeople = async () => {
+    setLoading(true);
+    setLoadError(null);
+
+    try {
+      const result = await peopleService.getPeople();
+      setPeople(result);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : 'No se pudieron cargar las personas.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadPeople();
+  }, []);
 
   const filteredPeople = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -37,10 +59,30 @@ export const PeoplePage = () => {
     );
   }, [people, search]);
 
-  const updatePerson = (personId: string, updater: (current: Person) => Person) => {
+  const updatePersonInState = (
+    personId: string,
+    updater: (current: Person) => Person,
+  ) => {
     setPeople((current) =>
       current.map((person) => (person.id === personId ? updater(person) : person)),
     );
+  };
+
+  const persistPersonUpdate = async (
+    personId: string,
+    payload: Partial<Person>,
+    successMessage: string,
+  ) => {
+    try {
+      await peopleService.updatePerson(personId, payload);
+      setFeedback(successMessage);
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? `Cambio local aplicado, pero no se pudo sincronizar: ${error.message}`
+          : 'Cambio local aplicado, pero no se pudo sincronizar en Supabase.',
+      );
+    }
   };
 
   return (
@@ -64,11 +106,33 @@ export const PeoplePage = () => {
         </div>
       ) : null}
 
-      {filteredPeople.length === 0 ? (
+      {loadError ? (
+        <Card className="grid gap-3">
+          <p className="text-sm text-rose-700">{loadError}</p>
+          <div>
+            <button
+              onClick={() => void loadPeople()}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm"
+            >
+              Reintentar
+            </button>
+          </div>
+        </Card>
+      ) : null}
+
+      {loading ? (
+        <Card>
+          <p className="text-sm text-slate-600">Cargando personas...</p>
+        </Card>
+      ) : null}
+
+      {!loading && !loadError && filteredPeople.length === 0 ? (
         <Card>
           <p className="text-sm text-slate-600">No hay personas que coincidan con tu búsqueda.</p>
         </Card>
-      ) : (
+      ) : null}
+
+      {!loading && !loadError && filteredPeople.length > 0 ? (
         <>
           <div className="hidden md:block">
             <PeopleTable
@@ -76,11 +140,17 @@ export const PeoplePage = () => {
               onView={setViewPerson}
               onEdit={setEditPerson}
               onToggleStatus={(person) => {
-                updatePerson(person.id, (current) => ({
+                const status = nextStatus(person.status);
+                updatePersonInState(person.id, (current) => ({
                   ...current,
-                  status: nextStatus(current.status),
+                  status,
                 }));
-                setFeedback(`Estado actualizado para ${person.name}.`);
+
+                void persistPersonUpdate(
+                  person.id,
+                  { status },
+                  `Estado actualizado para ${person.name}.`,
+                );
               }}
               onDeactivate={setDeactivatePerson}
             />
@@ -94,18 +164,24 @@ export const PeoplePage = () => {
                 onView={setViewPerson}
                 onEdit={setEditPerson}
                 onToggleStatus={(currentPerson) => {
-                  updatePerson(currentPerson.id, (current) => ({
+                  const status = nextStatus(currentPerson.status);
+                  updatePersonInState(currentPerson.id, (current) => ({
                     ...current,
-                    status: nextStatus(current.status),
+                    status,
                   }));
-                  setFeedback(`Estado actualizado para ${currentPerson.name}.`);
+
+                  void persistPersonUpdate(
+                    currentPerson.id,
+                    { status },
+                    `Estado actualizado para ${currentPerson.name}.`,
+                  );
                 }}
                 onDeactivate={setDeactivatePerson}
               />
             ))}
           </div>
         </>
-      )}
+      ) : null}
 
       <Modal
         open={viewPerson !== null}
@@ -146,8 +222,19 @@ export const PeoplePage = () => {
             className="grid gap-3"
             onSubmit={(event) => {
               event.preventDefault();
-              updatePerson(editPerson.id, () => editPerson);
-              setFeedback(`Datos guardados para ${editPerson.name}.`);
+
+              updatePersonInState(editPerson.id, () => editPerson);
+              void persistPersonUpdate(
+                editPerson.id,
+                {
+                  name: editPerson.name,
+                  city: editPerson.city,
+                  age: editPerson.age,
+                  status: editPerson.status,
+                },
+                `Datos guardados para ${editPerson.name}.`,
+              );
+
               setEditPerson(null);
             }}
           >
@@ -214,8 +301,18 @@ export const PeoplePage = () => {
         onCancel={() => setDeactivatePerson(null)}
         onConfirm={() => {
           if (!deactivatePerson) return;
-          updatePerson(deactivatePerson.id, (current) => ({ ...current, status: 'inactive' }));
-          setFeedback(`Cuenta desactivada para ${deactivatePerson.name}.`);
+
+          updatePersonInState(deactivatePerson.id, (current) => ({
+            ...current,
+            status: 'inactive',
+          }));
+
+          void persistPersonUpdate(
+            deactivatePerson.id,
+            { status: 'inactive' },
+            `Cuenta desactivada para ${deactivatePerson.name}.`,
+          );
+
           setDeactivatePerson(null);
         }}
       />
