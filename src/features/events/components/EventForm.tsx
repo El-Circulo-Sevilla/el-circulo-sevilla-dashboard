@@ -21,7 +21,7 @@ const eventFormSchema = z.object({
     .union([z.coerce.number().nonnegative('No puede ser negativo'), z.nan()])
     .transform((value) => (Number.isNaN(value) ? undefined : value))
     .optional(),
-  status: z.enum(['draft', 'open', 'closed', 'completed', 'cancelled']),
+  status: z.enum(['draft', 'published', 'full', 'completed', 'cancelled']),
   imageUrl: z.string().optional(),
   internalNotes: z.string().optional(),
 });
@@ -53,8 +53,8 @@ const defaultValues: EventFormValues = {
 
 const statusOptions: Array<{ value: EventStatus; label: string }> = [
   { value: 'draft', label: 'Borrador' },
-  { value: 'open', label: 'Abierto' },
-  { value: 'closed', label: 'Cerrado' },
+  { value: 'published', label: 'Publicado' },
+  { value: 'full', label: 'Completo' },
   { value: 'completed', label: 'Completado' },
   { value: 'cancelled', label: 'Cancelado' },
 ];

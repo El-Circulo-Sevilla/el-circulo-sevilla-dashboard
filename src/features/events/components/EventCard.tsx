@@ -13,8 +13,8 @@ interface EventCardProps {
 
 const statusMap: Record<EventStatus, { label: string; variant: 'neutral' | 'warning' | 'success' | 'danger' | 'info' }> = {
   draft: { label: 'Borrador', variant: 'neutral' },
-  open: { label: 'Abierto', variant: 'success' },
-  closed: { label: 'Cerrado', variant: 'warning' },
+  published: { label: 'Publicado', variant: 'success' },
+  full: { label: 'Completo', variant: 'warning' },
   completed: { label: 'Completado', variant: 'info' },
   cancelled: { label: 'Cancelado', variant: 'danger' },
 };

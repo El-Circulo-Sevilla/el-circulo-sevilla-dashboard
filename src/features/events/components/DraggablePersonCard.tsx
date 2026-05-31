@@ -1,6 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
 interface DraggablePersonCardProps {
@@ -12,6 +13,9 @@ interface DraggablePersonCardProps {
   compatibilityScore?: number;
   attendanceStatus: string;
   disabled?: boolean;
+  showRejectButton?: boolean;
+  rejectButtonDisabled?: boolean;
+  onRejectByAffinity?: () => void;
 }
 
 export const DraggablePersonCard = ({
@@ -23,6 +27,9 @@ export const DraggablePersonCard = ({
   compatibilityScore,
   attendanceStatus,
   disabled = false,
+  showRejectButton = false,
+  rejectButtonDisabled = false,
+  onRejectByAffinity,
 }: DraggablePersonCardProps) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id,
@@ -58,6 +65,24 @@ export const DraggablePersonCard = ({
         <p>Intereses: {interests.join(', ')}</p>
         {compatibilityScore ? <p>Compatibilidad: {compatibilityScore}%</p> : null}
       </div>
+
+      {showRejectButton ? (
+        <div className="mt-3 border-t border-brand-100 pt-2">
+          <Button
+            size="sm"
+            variant="danger"
+            className="w-full"
+            disabled={rejectButtonDisabled}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onRejectByAffinity?.();
+            }}
+          >
+            Rechazar por afinidad
+          </Button>
+        </div>
+      ) : null}
     </article>
   );
 };

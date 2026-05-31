@@ -10,9 +10,9 @@ import { Spinner } from '@/components/ui/Spinner';
 
 const statusFilters: Array<{ value: 'all' | EventStatus; label: string }> = [
   { value: 'all', label: 'Todos' },
-  { value: 'open', label: 'Abiertos' },
+  { value: 'published', label: 'Publicados' },
   { value: 'draft', label: 'Borrador' },
-  { value: 'closed', label: 'Cerrados' },
+  { value: 'full', label: 'Completos' },
   { value: 'completed', label: 'Completados' },
   { value: 'cancelled', label: 'Cancelados' },
 ];
@@ -46,7 +46,9 @@ export const EventsPage = () => {
   }, []);
 
   const metrics = useMemo(() => {
-    const totalOpen = events.filter((event) => event.status === 'open').length;
+    const totalPublished = events.filter(
+      (event) => event.status === 'published',
+    ).length;
     const totalRegistered = Object.values(registrationsByEvent).reduce(
       (acc, registrations) => acc + registrations.length,
       0,
@@ -60,10 +62,10 @@ export const EventsPage = () => {
     const occupationRate = totalSpots > 0 ? Math.round((totalAccepted / totalSpots) * 100) : 0;
 
     return {
-      totalOpen,
       totalRegistered,
       totalAccepted,
       occupationRate,
+      totalPublished,
     };
   }, [events, registrationsByEvent]);
 
@@ -79,7 +81,7 @@ export const EventsPage = () => {
           (registration) => registration.status === 'accepted',
         ).length;
 
-        return event.status === 'open' && acceptedCount < event.maxSpots;
+        return event.status === 'published' && acceptedCount < event.maxSpots;
       }).length,
     [events, registrationsByEvent],
   );
@@ -100,8 +102,8 @@ export const EventsPage = () => {
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-mute">Eventos abiertos</p>
-            <p className="mt-1 text-2xl font-bold text-ink">{metrics.totalOpen}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-mute">Eventos publicados</p>
+            <p className="mt-1 text-2xl font-bold text-ink">{metrics.totalPublished}</p>
           </div>
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-100 text-brand-800">
             <CalendarCheck2 size={20} />
@@ -194,7 +196,7 @@ export const EventsPage = () => {
             <Card className="space-y-2">
               <h3 className="text-sm font-semibold text-ink">Estado de perfil y afinidad</h3>
               <p className="text-sm text-mute">
-                Perfiles activos conectados con eventos abiertos y cupo disponible.
+                Perfiles activos conectados con eventos publicados y cupo disponible.
               </p>
               <div className="rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900">
                 Operativa estable. Mantén revisión semanal de perfiles pendientes.
@@ -204,7 +206,7 @@ export const EventsPage = () => {
             <Card className="space-y-2">
               <h3 className="text-sm font-semibold text-ink">Acciones pendientes</h3>
               <p className="text-sm text-mute">
-                {pendingActions} eventos abiertos necesitan completar selección.
+                {pendingActions} eventos publicados necesitan completar selección.
               </p>
               <Link to="/dashboard/eventos">
                 <Button variant="secondary" size="sm" className="w-full">

@@ -11,6 +11,7 @@ interface EventRegistrationsManagerProps {
   maxSpots: number;
   eventClosed: boolean;
   onAcceptedChange: (personIds: string[]) => Promise<void>;
+  onRejectByAffinity: (personId: string) => Promise<void>;
 }
 
 const REGISTERED_LIST_ID = 'registered-list';
@@ -21,9 +22,11 @@ export const EventRegistrationsManager = ({
   maxSpots,
   eventClosed,
   onAcceptedChange,
+  onRejectByAffinity,
 }: EventRegistrationsManagerProps) => {
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [rejectingPersonId, setRejectingPersonId] = useState<string | null>(null);
   const [draftAcceptedIds, setDraftAcceptedIds] = useState<string[]>([]);
 
   const candidates = useMemo(
@@ -116,6 +119,31 @@ export const EventRegistrationsManager = ({
     }
   };
 
+  const rejectPerson = async (personId: string) => {
+    if (eventClosed) {
+      setWarning('El evento está cerrado y no permite rechazos manuales.');
+      return;
+    }
+
+    if (hasPendingChanges) {
+      setWarning(
+        'Guarda o descarta los cambios pendientes de aceptados antes de rechazar por afinidad.',
+      );
+      return;
+    }
+
+    setWarning(null);
+    setRejectingPersonId(personId);
+    try {
+      await onRejectByAffinity(personId);
+      setDraftAcceptedIds((current) => current.filter((id) => id !== personId));
+    } catch {
+      setWarning('No se pudo rechazar a la persona por afinidad. Inténtalo de nuevo.');
+    } finally {
+      setRejectingPersonId(null);
+    }
+  };
+
   return (
     <Card className="grid gap-4">
       <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
@@ -183,6 +211,14 @@ export const EventRegistrationsManager = ({
                   compatibilityScore={registration.compatibilityScore}
                   attendanceStatus={registration.status}
                   disabled={eventClosed || saving}
+                  showRejectButton
+                  rejectButtonDisabled={
+                    eventClosed ||
+                    saving ||
+                    rejectingPersonId !== null ||
+                    hasPendingChanges
+                  }
+                  onRejectByAffinity={() => void rejectPerson(registration.personId)}
                 />
               ))
             )}

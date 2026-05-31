@@ -39,6 +39,11 @@ export const EventDetailPage = () => {
   const [confirmEmailOpen, setConfirmEmailOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [sending, setSending] = useState(false);
+  const registrationsLocked =
+    event?.status === 'full' ||
+    event?.status === 'completed' ||
+    event?.status === 'cancelled';
+  const canCloseRegistrations = event?.status === 'published';
 
   const acceptedCount = useMemo(
     () => registrations.filter((registration) => registration.status === 'accepted').length,
@@ -119,6 +124,26 @@ export const EventDetailPage = () => {
           : 'No se pudo actualizar la selección de aceptados.';
       setMessage(message);
       throw acceptedError;
+    }
+  };
+
+  const handleRejectByAffinity = async (personId: string) => {
+    if (!event) return;
+
+    try {
+      const updatedRegistrations = await eventService.rejectPersonByAffinity(
+        event.id,
+        personId,
+      );
+      setRegistrations(updatedRegistrations);
+      setMessage('Persona rechazada por afinidad correctamente.');
+    } catch (rejectError) {
+      const message =
+        rejectError instanceof Error
+          ? rejectError.message
+          : 'No se pudo rechazar a la persona por afinidad.';
+      setMessage(message);
+      throw rejectError;
     }
   };
 
@@ -206,8 +231,9 @@ export const EventDetailPage = () => {
       <EventRegistrationsManager
         registrations={registrations}
         maxSpots={event.maxSpots}
-        eventClosed={event.status === 'closed'}
+        eventClosed={Boolean(registrationsLocked)}
         onAcceptedChange={handleAcceptedChange}
+        onRejectByAffinity={handleRejectByAffinity}
       />
 
       <Card className="grid gap-4 md:grid-cols-2">
@@ -222,7 +248,7 @@ export const EventDetailPage = () => {
           <Button
             variant="secondary"
             onClick={() => setConfirmCloseOpen(true)}
-            disabled={event.status === 'closed'}
+            disabled={!canCloseRegistrations}
           >
             Cerrar inscripciones
           </Button>

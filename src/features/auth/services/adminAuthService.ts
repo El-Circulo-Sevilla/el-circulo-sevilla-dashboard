@@ -3,6 +3,21 @@ import { hasSupabaseEnv, supabase } from '@/lib/supabaseClient';
 import { toAppError } from '@/lib/serviceResult';
 
 const ADMIN_ROLES = new Set(['admin', 'super_admin']);
+const EXPLICIT_REDIRECT_URL = import.meta.env.VITE_AUTH_REDIRECT_URL as
+  | string
+  | undefined;
+
+const getGoogleRedirectUrl = () => {
+  if (EXPLICIT_REDIRECT_URL && EXPLICIT_REDIRECT_URL.trim().length > 0) {
+    return EXPLICIT_REDIRECT_URL;
+  }
+
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return `${window.location.origin}/auth/callback`;
+  }
+
+  return 'https://admin.elcirculosevilla.com/auth/callback';
+};
 
 export type AccessState =
   | { status: 'authenticated'; user: User; role: string }
@@ -24,7 +39,7 @@ export const adminAuthService = {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://dashboard.elcirculosevilla.com/auth/callback',
+        redirectTo: getGoogleRedirectUrl(),
       },
     });
 

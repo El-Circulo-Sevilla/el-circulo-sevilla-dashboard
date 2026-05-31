@@ -33,6 +33,21 @@ type DashboardEventRow = {
   internal_notes: string | null;
   created_at: string | null;
   updated_at: string | null;
+  venue?: VenueRow | VenueRow[] | null;
+  match_group?: MatchGroupMetaRow | MatchGroupMetaRow[] | null;
+};
+
+type VenueRow = {
+  id?: number | null;
+  name: string | null;
+  zone: string | null;
+  category?: string | null;
+};
+
+type MatchGroupMetaRow = {
+  id: string;
+  group_status: string | null;
+  compatibility_score: number | null;
 };
 
 type GroupMemberRow = {
@@ -55,12 +70,27 @@ const withDateAndTime = (date: string, time: string) =>
   new Date(`${date}T${time}:00`).toISOString();
 
 const isSupabaseReady = () => hasSupabaseEnv && Boolean(supabase);
+const asVenue = (value: DashboardEventRow['venue']): VenueRow | null => {
+  if (!value) return null;
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value;
+};
+
+const asMatchGroup = (
+  value: DashboardEventRow['match_group'],
+): MatchGroupMetaRow | null => {
+  if (!value) return null;
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value;
+};
 
 const toEventStatus = (value: string | null): EventStatus => {
   const normalized = (value ?? '').toLowerCase();
 
-  if (normalized === 'open') return 'open';
-  if (normalized === 'closed') return 'closed';
+  if (normalized === 'open') return 'published';
+  if (normalized === 'published') return 'published';
+  if (normalized === 'closed') return 'full';
+  if (normalized === 'full') return 'full';
   if (normalized === 'completed') return 'completed';
   if (normalized === 'cancelled') return 'cancelled';
   return 'draft';
@@ -84,6 +114,9 @@ const toOptionalNumber = (value: number | string | null | undefined) => {
 
 const mapEventRowToEvent = (row: DashboardEventRow): Event => {
   const maxSpots = typeof row.max_spots === 'number' ? row.max_spots : 10;
+  const venue = asVenue(row.venue);
+  const matchGroup = asMatchGroup(row.match_group);
+  const rowStatus = row.status ?? matchGroup?.group_status ?? null;
 
   return {
     id: row.id,
@@ -91,12 +124,12 @@ const mapEventRowToEvent = (row: DashboardEventRow): Event => {
     description: row.description ?? '',
     type: row.event_type ?? 'Evento',
     scheduledAt: row.scheduled_at ?? new Date().toISOString(),
-    location: row.venue_name ?? 'Lugar por confirmar',
-    zone: row.zone ?? undefined,
+    location: row.venue_name ?? venue?.name ?? 'Lugar por confirmar',
+    zone: row.zone ?? venue?.zone ?? undefined,
     address: row.address ?? undefined,
     maxSpots,
     price: toOptionalNumber(row.price),
-    status: toEventStatus(row.status),
+    status: toEventStatus(rowStatus),
     imageUrl: row.image_url ?? undefined,
     internalNotes: row.internal_notes ?? undefined,
     createdAt: row.created_at ?? row.scheduled_at ?? new Date().toISOString(),
@@ -218,7 +251,7 @@ const fromMockStore = {
 
     eventsStore[index] = {
       ...eventsStore[index],
-      status: 'closed',
+      status: 'full',
     };
 
     return clone(eventsStore[index]);
@@ -282,6 +315,18 @@ const fromMockStore = {
       sentAt: new Date().toISOString(),
     };
   },
+
+  async rejectPersonByAffinity(eventId: string, personId: string) {
+    await wait();
+
+    registrationsStore = registrationsStore.map((registration) => {
+      if (registration.eventId !== eventId) return registration;
+      if (registration.personId !== personId) return registration;
+      return { ...registration, status: 'rejected' };
+    });
+
+    return fromMockStore.getEventRegistrations(eventId);
+  },
 };
 
 const getEventRowById = async (eventId: string) => {
@@ -289,7 +334,22 @@ const getEventRowById = async (eventId: string) => {
 
   const { data, error } = await supabase
     .from('events')
-    .select('*')
+    .select(
+      `
+      *,
+      venue:venues (
+        id,
+        name,
+        zone,
+        category
+      ),
+      match_group:match_groups (
+        id,
+        group_status,
+        compatibility_score
+      )
+    `,
+    )
     .eq('id', eventId)
     .maybeSingle();
 
@@ -308,6 +368,54 @@ const getMatchGroupIdByDashboardEventId = async (eventId: string) => {
   return eventRow.match_group_id;
 };
 
+const resolveVenueId = async (payload: CreateEventPayload) => {
+  if (!supabase) throw new Error('Supabase no está disponible');
+
+  const normalizedZone = emptyToNull(payload.zone);
+
+  let venueQuery = supabase
+    .from('venues')
+    .select('id')
+    .eq('name', payload.location.trim())
+    .limit(1);
+
+  if (normalizedZone) {
+    venueQuery = venueQuery.eq('zone', normalizedZone);
+  } else {
+    venueQuery = venueQuery.is('zone', null);
+  }
+
+  const { data: existingVenue, error: existingVenueError } = await venueQuery.maybeSingle();
+
+  if (existingVenueError) {
+    throw new Error(
+      toAppError(existingVenueError, 'VENUE_LOOKUP_FAILED', 'No se pudo buscar el lugar').message,
+    );
+  }
+
+  if (existingVenue?.id) {
+    return Number(existingVenue.id);
+  }
+
+  const { data: createdVenue, error: venueCreateError } = await supabase
+    .from('venues')
+    .insert({
+      name: payload.location.trim(),
+      zone: normalizedZone,
+      category: payload.type,
+    })
+    .select('id')
+    .single();
+
+  if (venueCreateError) {
+    throw new Error(
+      toAppError(venueCreateError, 'VENUE_CREATE_FAILED', 'No se pudo crear el venue').message,
+    );
+  }
+
+  return Number((createdVenue as { id: number }).id);
+};
+
 export const eventService = {
   async getEvents() {
     if (!isSupabaseReady() || !supabase) {
@@ -316,7 +424,22 @@ export const eventService = {
 
     const { data, error } = await supabase
       .from('events')
-      .select('*')
+      .select(
+        `
+        *,
+        venue:venues (
+          id,
+          name,
+          zone,
+          category
+        ),
+        match_group:match_groups (
+          id,
+          group_status,
+          compatibility_score
+        )
+      `,
+      )
       .order('scheduled_at', { ascending: true });
 
     if (error) {
@@ -345,8 +468,34 @@ export const eventService = {
     }
 
     const scheduledAt = withDateAndTime(payload.date, payload.time);
+    const venueId = await resolveVenueId(payload);
+
+    const { data: matchGroupData, error: matchGroupError } = await supabase
+      .from('match_groups')
+      .insert({
+        venue_id: venueId,
+        scheduled_at: scheduledAt,
+        group_status: 'PENDING',
+        compatibility_score: 0,
+      })
+      .select('id')
+      .single();
+
+    if (matchGroupError) {
+      throw new Error(
+        toAppError(
+          matchGroupError,
+          'MATCH_GROUP_CREATE_FAILED',
+          'No se pudo crear el grupo de matching',
+        ).message,
+      );
+    }
+
+    const matchGroupId = (matchGroupData as { id: string }).id;
 
     const insertPayload = {
+      match_group_id: matchGroupId,
+      venue_id: venueId,
       title: payload.title,
       event_type: payload.type,
       description: emptyToNull(payload.description),
@@ -359,8 +508,6 @@ export const eventService = {
       status: toDbStatus(payload.status),
       image_url: emptyToNull(payload.imageUrl),
       internal_notes: emptyToNull(payload.internalNotes),
-      venue_id: null,
-      match_group_id: null,
     };
 
     const { data, error } = await supabase
@@ -429,7 +576,7 @@ export const eventService = {
     const { error } = await supabase
       .from('events')
       .update({
-        status: 'CLOSED',
+        status: 'FULL',
         updated_at: new Date().toISOString(),
       })
       .eq('id', eventId);
@@ -569,6 +716,40 @@ export const eventService = {
           toAppError(upsertError, 'EVENT_ACCEPTED_UPDATE_FAILED', 'No se pudo actualizar la lista de aceptados').message,
         );
       }
+    }
+
+    return eventService.getEventRegistrations(eventId);
+  },
+
+  async rejectPersonByAffinity(eventId: string, personId: string) {
+    if (!isSupabaseReady() || !supabase) {
+      return fromMockStore.rejectPersonByAffinity(eventId, personId);
+    }
+
+    const eventRow = await getEventRowById(eventId);
+    if (!eventRow) {
+      throw new Error('Evento no encontrado');
+    }
+
+    const matchGroupId = eventRow.match_group_id;
+
+    if (!matchGroupId) {
+      throw new Error(
+        'Este evento todavía no tiene match_group asociado. No se puede rechazar por afinidad.',
+      );
+    }
+
+    const { error } = await supabase
+      .from('group_members')
+      .update({ attendance_status: 'REJECTED' })
+      .eq('group_id', matchGroupId)
+      .eq('user_id', personId);
+
+    if (error) {
+      throw new Error(
+        toAppError(error, 'EVENT_REJECT_BY_AFFINITY_FAILED', 'No se pudo rechazar por afinidad')
+          .message,
+      );
     }
 
     return eventService.getEventRegistrations(eventId);
