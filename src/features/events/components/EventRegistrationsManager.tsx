@@ -1,5 +1,6 @@
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import type { EventRegistrationWithPerson } from '@/features/events/types';
 import { DraggablePersonCard } from '@/features/events/components/DraggablePersonCard';
@@ -23,21 +24,60 @@ export const EventRegistrationsManager = ({
 }: EventRegistrationsManagerProps) => {
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [draftAcceptedIds, setDraftAcceptedIds] = useState<string[]>([]);
 
-  const accepted = useMemo(
-    () => registrations.filter((registration) => registration.status === 'accepted'),
+  const candidates = useMemo(
+    () =>
+      registrations.filter(
+        (registration) =>
+          registration.status === 'registered' || registration.status === 'accepted',
+      ),
     [registrations],
   );
 
+  const persistedAcceptedIds = useMemo(
+    () =>
+      candidates
+        .filter((registration) => registration.status === 'accepted')
+        .map((registration) => registration.personId),
+    [candidates],
+  );
+
+  useEffect(() => {
+    setDraftAcceptedIds(persistedAcceptedIds);
+  }, [persistedAcceptedIds.join('|')]);
+
+  const hasPendingChanges = useMemo(() => {
+    const persisted = [...persistedAcceptedIds].sort().join('|');
+    const draft = [...draftAcceptedIds].sort().join('|');
+    return persisted !== draft;
+  }, [persistedAcceptedIds, draftAcceptedIds]);
+
+  const accepted = useMemo(
+    () =>
+      candidates.filter((registration) =>
+        draftAcceptedIds.includes(registration.personId),
+      ),
+    [candidates, draftAcceptedIds],
+  );
+
   const registered = useMemo(
-    () => registrations.filter((registration) => registration.status === 'registered'),
-    [registrations],
+    () =>
+      candidates.filter(
+        (registration) => !draftAcceptedIds.includes(registration.personId),
+      ),
+    [candidates, draftAcceptedIds],
   );
 
   const syncAccepted = async (personIds: string[]) => {
     setSaving(true);
     try {
       await onAcceptedChange(personIds);
+      setWarning(null);
+    } catch {
+      setWarning(
+        'No se pudieron guardar los cambios. Revisa la conexión o permisos y reintenta.',
+      );
     } finally {
       setSaving(false);
     }
@@ -64,16 +104,15 @@ export const EventRegistrationsManager = ({
         return;
       }
 
-      const nextAccepted = [...accepted.map((item) => item.personId), personId];
-      await syncAccepted(nextAccepted);
+      const nextAccepted = [...draftAcceptedIds, personId];
+      setDraftAcceptedIds(nextAccepted);
       return;
     }
 
     if (targetListId === REGISTERED_LIST_ID && fromAccepted) {
-      const nextAccepted = accepted
-        .map((item) => item.personId)
+      const nextAccepted = draftAcceptedIds
         .filter((id) => id !== personId);
-      await syncAccepted(nextAccepted);
+      setDraftAcceptedIds(nextAccepted);
     }
   };
 
@@ -98,6 +137,29 @@ export const EventRegistrationsManager = ({
         </div>
       ) : null}
 
+      {hasPendingChanges && !saving ? (
+        <div className="rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">
+          Tienes cambios sin guardar en la selección de personas aceptadas.
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          variant="ghost"
+          onClick={() => setDraftAcceptedIds(persistedAcceptedIds)}
+          disabled={!hasPendingChanges || saving}
+        >
+          Descartar cambios
+        </Button>
+        <Button
+          onClick={() => void syncAccepted(draftAcceptedIds)}
+          disabled={!hasPendingChanges || saving || eventClosed}
+          isLoading={saving}
+        >
+          Guardar cambios
+        </Button>
+      </div>
+
       <DndContext onDragEnd={onDragEnd}>
         <div className="grid gap-4 lg:grid-cols-2">
           <DroppablePersonList
@@ -120,7 +182,7 @@ export const EventRegistrationsManager = ({
                   interests={registration.person.interests}
                   compatibilityScore={registration.compatibilityScore}
                   attendanceStatus={registration.status}
-                  disabled={eventClosed}
+                  disabled={eventClosed || saving}
                 />
               ))
             )}
@@ -146,7 +208,7 @@ export const EventRegistrationsManager = ({
                   interests={registration.person.interests}
                   compatibilityScore={registration.compatibilityScore}
                   attendanceStatus={registration.status}
-                  disabled={eventClosed}
+                  disabled={eventClosed || saving}
                 />
               ))
             )}

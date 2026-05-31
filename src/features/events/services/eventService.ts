@@ -15,11 +15,24 @@ const NETWORK_DELAY_MS = 320;
 let eventsStore: Event[] = structuredClone(mockEvents);
 let registrationsStore: EventRegistration[] = structuredClone(mockRegistrations);
 
-type VenueRow = {
-  id?: string | number;
-  name: string | null;
+type DashboardEventRow = {
+  id: string;
+  match_group_id: string | null;
+  venue_id: number | null;
+  title: string | null;
+  event_type: string | null;
+  description: string | null;
+  scheduled_at: string | null;
+  venue_name: string | null;
   zone: string | null;
-  category?: string | null;
+  address: string | null;
+  max_spots: number | null;
+  price: number | string | null;
+  status: string | null;
+  image_url: string | null;
+  internal_notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 type GroupMemberRow = {
@@ -27,19 +40,6 @@ type GroupMemberRow = {
   user_id: string;
   attendance_status: string | null;
   joined_at?: string | null;
-};
-
-type MatchGroupRow = {
-  id: string | number;
-  title: string | null;
-  event_type: string | null;
-  icon_name: string | null;
-  scheduled_at: string | null;
-  max_spots: number | null;
-  description: string | null;
-  group_status: string | null;
-  venue: VenueRow | VenueRow[] | null;
-  members?: GroupMemberRow[] | null;
 };
 
 type ProfileRow = Record<string, unknown>;
@@ -56,12 +56,6 @@ const withDateAndTime = (date: string, time: string) =>
 
 const isSupabaseReady = () => hasSupabaseEnv && Boolean(supabase);
 
-const asVenue = (value: MatchGroupRow['venue']): VenueRow | null => {
-  if (!value) return null;
-  if (Array.isArray(value)) return value[0] ?? null;
-  return value;
-};
-
 const toEventStatus = (value: string | null): EventStatus => {
   const normalized = (value ?? '').toLowerCase();
 
@@ -72,26 +66,40 @@ const toEventStatus = (value: string | null): EventStatus => {
   return 'draft';
 };
 
-const toGroupStatus = (status: EventStatus) => status.toUpperCase();
+const toDbStatus = (status: EventStatus) => status.toUpperCase();
+const emptyToNull = (value: string | null | undefined) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
 
-const toEvent = (row: MatchGroupRow): Event => {
-  const venue = asVenue(row.venue);
+const toOptionalNumber = (value: number | string | null | undefined) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
+
+const mapEventRowToEvent = (row: DashboardEventRow): Event => {
+  const maxSpots = typeof row.max_spots === 'number' ? row.max_spots : 10;
 
   return {
-    id: String(row.id),
+    id: row.id,
     title: row.title ?? 'Evento sin título',
     description: row.description ?? '',
     type: row.event_type ?? 'Evento',
     scheduledAt: row.scheduled_at ?? new Date().toISOString(),
-    location: venue?.name ?? 'Lugar por confirmar',
-    zone: venue?.zone ?? undefined,
-    address: undefined,
-    maxSpots: row.max_spots ?? 0,
-    price: undefined,
-    status: toEventStatus(row.group_status),
-    imageUrl: row.icon_name ?? undefined,
-    internalNotes: undefined,
-    createdAt: row.scheduled_at ?? new Date().toISOString(),
+    location: row.venue_name ?? 'Lugar por confirmar',
+    zone: row.zone ?? undefined,
+    address: row.address ?? undefined,
+    maxSpots,
+    price: toOptionalNumber(row.price),
+    status: toEventStatus(row.status),
+    imageUrl: row.image_url ?? undefined,
+    internalNotes: row.internal_notes ?? undefined,
+    createdAt: row.created_at ?? row.scheduled_at ?? new Date().toISOString(),
   };
 };
 
@@ -276,6 +284,30 @@ const fromMockStore = {
   },
 };
 
+const getEventRowById = async (eventId: string) => {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', eventId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      toAppError(error, 'EVENT_FETCH_FAILED', 'No se pudo cargar el evento').message,
+    );
+  }
+
+  return (data as DashboardEventRow | null) ?? null;
+};
+
+const getMatchGroupIdByDashboardEventId = async (eventId: string) => {
+  const eventRow = await getEventRowById(eventId);
+  if (!eventRow) return null;
+  return eventRow.match_group_id;
+};
+
 export const eventService = {
   async getEvents() {
     if (!isSupabaseReady() || !supabase) {
@@ -283,36 +315,19 @@ export const eventService = {
     }
 
     const { data, error } = await supabase
-      .from('match_groups')
-      .select(
-        `
-        id,
-        title,
-        event_type,
-        icon_name,
-        scheduled_at,
-        max_spots,
-        description,
-        group_status,
-        venue:venues(
-          id,
-          name,
-          zone,
-          category
-        )
-      `,
-      )
+      .from('events')
+      .select('*')
       .order('scheduled_at', { ascending: true });
 
     if (error) {
       console.warn(
-        'Fallo cargando eventos en Supabase, usando mock.',
+        'Fallo cargando events en Supabase, usando mock.',
         toAppError(error, 'EVENTS_FETCH_FAILED', 'No se pudieron cargar los eventos'),
       );
       return fromMockStore.getEvents();
     }
 
-    return (data as MatchGroupRow[]).map(toEvent);
+    return ((data as DashboardEventRow[]) ?? []).map(mapEventRowToEvent);
   },
 
   async getEventById(eventId: string) {
@@ -320,38 +335,8 @@ export const eventService = {
       return fromMockStore.getEventById(eventId);
     }
 
-    const { data, error } = await supabase
-      .from('match_groups')
-      .select(
-        `
-        id,
-        title,
-        event_type,
-        icon_name,
-        scheduled_at,
-        max_spots,
-        description,
-        group_status,
-        venue:venues(
-          id,
-          name,
-          zone,
-          category
-        )
-      `,
-      )
-      .eq('id', eventId)
-      .maybeSingle();
-
-    if (error) {
-      console.warn(
-        'Fallo cargando evento en Supabase, usando mock.',
-        toAppError(error, 'EVENT_FETCH_FAILED', 'No se pudo cargar el evento'),
-      );
-      return fromMockStore.getEventById(eventId);
-    }
-
-    return data ? toEvent(data as MatchGroupRow) : null;
+    const row = await getEventRowById(eventId);
+    return row ? mapEventRowToEvent(row) : null;
   },
 
   async createEvent(payload: CreateEventPayload) {
@@ -361,64 +346,27 @@ export const eventService = {
 
     const scheduledAt = withDateAndTime(payload.date, payload.time);
 
-    let venueId: string | number | null = null;
-
-    if (payload.location) {
-      const { data: venueData, error: venueError } = await supabase
-        .from('venues')
-        .insert({
-          name: payload.location,
-          zone: payload.zone ?? null,
-          category: payload.type,
-        })
-        .select('id')
-        .single();
-
-      if (venueError) {
-        throw new Error(
-          toAppError(venueError, 'VENUE_CREATE_FAILED', 'No se pudo crear el lugar del evento')
-            .message,
-        );
-      }
-
-      venueId = (venueData as { id: string | number }).id;
-    }
-
-    const insertPayload: Record<string, unknown> = {
+    const insertPayload = {
       title: payload.title,
       event_type: payload.type,
+      description: emptyToNull(payload.description),
       scheduled_at: scheduledAt,
+      venue_name: payload.location,
+      zone: emptyToNull(payload.zone),
+      address: emptyToNull(payload.address),
       max_spots: payload.maxSpots,
-      description: payload.description ?? null,
-      group_status: toGroupStatus(payload.status),
-      icon_name: payload.imageUrl ?? null,
+      price: payload.price ?? null,
+      status: toDbStatus(payload.status),
+      image_url: emptyToNull(payload.imageUrl),
+      internal_notes: emptyToNull(payload.internalNotes),
+      venue_id: null,
+      match_group_id: null,
     };
 
-    if (venueId) {
-      insertPayload.venue_id = venueId;
-    }
-
     const { data, error } = await supabase
-      .from('match_groups')
+      .from('events')
       .insert(insertPayload)
-      .select(
-        `
-        id,
-        title,
-        event_type,
-        icon_name,
-        scheduled_at,
-        max_spots,
-        description,
-        group_status,
-        venue:venues(
-          id,
-          name,
-          zone,
-          category
-        )
-      `,
-      )
+      .select('*')
       .single();
 
     if (error) {
@@ -427,7 +375,7 @@ export const eventService = {
       );
     }
 
-    return toEvent(data as MatchGroupRow);
+    return mapEventRowToEvent(data as DashboardEventRow);
   },
 
   async updateEvent(eventId: string, payload: UpdateEventPayload) {
@@ -435,57 +383,34 @@ export const eventService = {
       return fromMockStore.updateEvent(eventId, payload);
     }
 
-    const updatePayload: Record<string, unknown> = {};
+    const updatePayload: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
 
     if (typeof payload.title === 'string') updatePayload.title = payload.title;
-    if (typeof payload.description === 'string') updatePayload.description = payload.description;
+    if (typeof payload.description === 'string') updatePayload.description = emptyToNull(payload.description);
     if (typeof payload.type === 'string') updatePayload.event_type = payload.type;
     if (typeof payload.scheduledAt === 'string') updatePayload.scheduled_at = payload.scheduledAt;
+    if (typeof payload.location === 'string') updatePayload.venue_name = payload.location;
+    if (typeof payload.zone === 'string') updatePayload.zone = emptyToNull(payload.zone);
+    if (typeof payload.address === 'string') updatePayload.address = emptyToNull(payload.address);
     if (typeof payload.maxSpots === 'number') updatePayload.max_spots = payload.maxSpots;
-    if (typeof payload.status === 'string') updatePayload.group_status = toGroupStatus(payload.status);
-    if (typeof payload.imageUrl === 'string') updatePayload.icon_name = payload.imageUrl;
-
-    if (Object.keys(updatePayload).length > 0) {
-      const { error } = await supabase
-        .from('match_groups')
-        .update(updatePayload)
-        .eq('id', eventId);
-
-      if (error) {
-        throw new Error(
-          toAppError(error, 'EVENT_UPDATE_FAILED', 'No se pudo actualizar el evento').message,
-        );
-      }
+    if (Object.prototype.hasOwnProperty.call(payload, 'price')) {
+      updatePayload.price = payload.price ?? null;
     }
+    if (typeof payload.status === 'string') updatePayload.status = toDbStatus(payload.status);
+    if (typeof payload.imageUrl === 'string') updatePayload.image_url = emptyToNull(payload.imageUrl);
+    if (typeof payload.internalNotes === 'string') updatePayload.internal_notes = emptyToNull(payload.internalNotes);
 
-    if (payload.location || payload.zone) {
-      const { data: matchGroupData } = await supabase
-        .from('match_groups')
-        .select('venue:venues(id)')
-        .eq('id', eventId)
-        .maybeSingle();
+    const { error } = await supabase
+      .from('events')
+      .update(updatePayload)
+      .eq('id', eventId);
 
-      const venueCandidate = (matchGroupData as { venue?: { id?: string | number } | { id?: string | number }[] } | null)?.venue;
-      const venue = Array.isArray(venueCandidate) ? venueCandidate[0] : venueCandidate;
-
-      if (venue?.id) {
-        const venueUpdatePayload: Record<string, unknown> = {};
-        if (typeof payload.location === 'string') venueUpdatePayload.name = payload.location;
-        if (typeof payload.zone === 'string') venueUpdatePayload.zone = payload.zone;
-
-        if (Object.keys(venueUpdatePayload).length > 0) {
-          const { error: venueError } = await supabase
-            .from('venues')
-            .update(venueUpdatePayload)
-            .eq('id', venue.id);
-
-          if (venueError) {
-            throw new Error(
-              toAppError(venueError, 'VENUE_UPDATE_FAILED', 'No se pudo actualizar el lugar').message,
-            );
-          }
-        }
-      }
+    if (error) {
+      throw new Error(
+        toAppError(error, 'EVENT_UPDATE_FAILED', 'No se pudo actualizar el evento').message,
+      );
     }
 
     const updatedEvent = await eventService.getEventById(eventId);
@@ -502,8 +427,11 @@ export const eventService = {
     }
 
     const { error } = await supabase
-      .from('match_groups')
-      .update({ group_status: 'CLOSED' })
+      .from('events')
+      .update({
+        status: 'CLOSED',
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', eventId);
 
     if (error) {
@@ -525,10 +453,16 @@ export const eventService = {
       return fromMockStore.getEventRegistrations(eventId);
     }
 
+    const matchGroupId = await getMatchGroupIdByDashboardEventId(eventId);
+
+    if (!matchGroupId) {
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('group_members')
       .select('group_id,user_id,attendance_status,joined_at')
-      .eq('group_id', eventId);
+      .eq('group_id', matchGroupId);
 
     if (error) {
       console.warn(
@@ -588,19 +522,27 @@ export const eventService = {
       return fromMockStore.updateAcceptedPeople(eventId, personIds);
     }
 
-    const event = await eventService.getEventById(eventId);
-    if (!event) {
+    const eventRow = await getEventRowById(eventId);
+    if (!eventRow) {
       throw new Error('Evento no encontrado');
     }
 
-    if (personIds.length > event.maxSpots) {
+    if (personIds.length > (eventRow.max_spots ?? 10)) {
       throw new Error('Se superó el máximo de plazas');
+    }
+
+    const matchGroupId = eventRow.match_group_id;
+
+    if (!matchGroupId) {
+      throw new Error(
+        'Este evento todavía no tiene match_group asociado. No se pueden gestionar aceptados.',
+      );
     }
 
     const { data, error } = await supabase
       .from('group_members')
       .select('group_id,user_id,attendance_status,joined_at')
-      .eq('group_id', eventId);
+      .eq('group_id', matchGroupId);
 
     if (error) {
       throw new Error(
@@ -611,7 +553,7 @@ export const eventService = {
     const rows = (data as GroupMemberRow[]) ?? [];
 
     const updates = rows.map((row) => ({
-      group_id: eventId,
+      group_id: matchGroupId,
       user_id: row.user_id,
       attendance_status: personIds.includes(row.user_id) ? 'ACCEPTED' : 'PENDING',
       joined_at: row.joined_at ?? new Date().toISOString(),

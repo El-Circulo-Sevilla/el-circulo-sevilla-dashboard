@@ -111,12 +111,14 @@ export const EventDetailPage = () => {
     try {
       const updatedRegistrations = await eventService.updateAcceptedPeople(event.id, personIds);
       setRegistrations(updatedRegistrations);
+      setMessage('Selección de personas aceptadas guardada correctamente.');
     } catch (acceptedError) {
-      setMessage(
+      const message =
         acceptedError instanceof Error
           ? acceptedError.message
-          : 'No se pudo actualizar la selección de aceptados.',
-      );
+          : 'No se pudo actualizar la selección de aceptados.';
+      setMessage(message);
+      throw acceptedError;
     }
   };
 

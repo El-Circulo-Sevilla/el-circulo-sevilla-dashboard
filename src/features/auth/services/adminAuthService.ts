@@ -11,14 +11,6 @@ export type AccessState =
   | { status: 'config_error'; message: string }
   | { status: 'error'; message: string };
 
-const getAuthRedirectOrigin = () => {
-  if (typeof window !== 'undefined' && window.location.origin) {
-    return window.location.origin;
-  }
-
-  return import.meta.env.VITE_SITE_URL ?? '';
-};
-
 export const adminAuthService = {
   async signInWithGoogle() {
     if (!hasSupabaseEnv || !supabase) {
@@ -29,11 +21,11 @@ export const adminAuthService = {
       };
     }
 
-    const redirectTo = `${getAuthRedirectOrigin()}/auth/callback`;
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo },
+      options: {
+        redirectTo: 'https://dashboard.elcirculosevilla.com/auth/callback',
+      },
     });
 
     if (error) {
